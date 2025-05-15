@@ -19,6 +19,7 @@
   </style>
 </head>
 <body>
+  <!-- Ensure you place your VC sprite in the repo as 'vc-sprite.png' -->
   <div id="score">Score: 0</div>
   <div id="message"></div>
   <div id="quotePopup"></div>
@@ -26,6 +27,7 @@
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
+    let groundY;
     function resize() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -34,9 +36,9 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Images
+    // Load images
     const playerImg = new Image();
-    playerImg.src = 'vc-sprite.png';
+    playerImg.src = 'vc-sprite.png'; // Upload your sprite here
     const obstacleImg = new Image();
     obstacleImg.src = 'believe.jpg';
 
@@ -107,10 +109,15 @@
       ctx.fillStyle = '#555';
       ctx.fillRect(0, groundY, canvas.width, 4);
 
-      // Draw player sprite
-      ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+      // Draw player sprite or fallback
+      if (playerImg.complete) {
+        ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+      } else {
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+      }
 
-      // Obstacles
+      // Draw obstacles
       obstacles.forEach((obs, i) => {
         obs.x -= obstacleSpeed;
         ctx.drawImage(obstacleImg, obs.x, obs.y, obs.size, obs.size);
@@ -129,7 +136,7 @@
         if (obs.x + obs.size < 0) obstacles.splice(i,1);
       });
 
-      // Quotes
+      // Quotes logic unchanged
       quotes.forEach((q, i) => {
         q.x -= obstacleSpeed * 0.8;
         ctx.fillStyle = '#0ff';
