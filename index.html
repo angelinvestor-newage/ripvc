@@ -47,12 +47,11 @@
 
     // Assets
     const spriteImg = new Image(); spriteImg.src = 'vc-run.png'; // 3-frame running VC sprite sheet
-    const groundImg = new Image(); groundImg.src = 'ground.png'; // pixel-art ground tile
     const obstacleImg = new Image(); obstacleImg.src = 'believe.png'; // green 'B' logo obstacle
     const cloudImg = new Image(); cloudImg.src = 'cloud1.png'; // stylized white pixel-art cloud
 
     // Game state
-    const player = { x: 100, y: 0, w: 50, h: 75, frame: 0, frameTimer: 0, vy: 0, gravity: 0.6, jump: -15 };
+    const player = { x: 0, y: 0, w: 50, h: 75, frame: 0, frameTimer: 0, vy: 0, gravity: 0.6, jump: -15 };
     let gameStarted = false, gameOver = false;
     let score = 0, best = localStorage.getItem('vcBest') || 0;
     const obstacles = [];
@@ -95,6 +94,7 @@
     function reset() {
       obstacles.length = 0;
       quotes.length = 0;
+      player.x = Math.floor(W/2 - player.w/2);
       player.y = groundY - player.h;
       player.vy = 0;
       score = 0;
@@ -107,56 +107,54 @@
       drawInitial();
     }
 
-    // Draw initial
+    // Draw initial screen
     function drawInitial() {
       ctx.clearRect(0, 0, W, H);
-      // Ground covers entire bottom
-      if (groundImg.complete) {
-        const pat = ctx.createPattern(groundImg, 'repeat-x');
-        ctx.fillStyle = pat;
-        ctx.fillRect(0, groundY, W, H - groundY);
-      } else {
-        ctx.fillStyle = '#555';
-        ctx.fillRect(0, groundY, W, H - groundY);
-      }
-      // Clouds smaller
+      // Ground full bottom
+      ctx.fillStyle = '#555';
+      ctx.fillRect(0, groundY, W, H - groundY);
+      // Clouds small
       clouds.forEach(c => {
-        ctx.drawImage(cloudImg, c.x, c.y, 100, 50);
+        ctx.drawImage(cloudImg, c.x, c.y, 80, 40);
       });
-      // Player at center
+      // Player fallback
       player.x = Math.floor(W/2 - player.w/2);
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+      // Overlay sprite if loaded
       if (spriteImg.complete && spriteImg.naturalWidth) {
         ctx.drawImage(spriteImg, player.frame * player.w, 0, player.w, player.h, player.x, player.y, player.w, player.h);
-      } else {
-        ctx.fillStyle = '#0f0'; ctx.fillRect(player.x, player.y, player.w, player.h);
       }
     }
 
-    // Draw/Update
+    // Update loop
     function update() {
       if (!gameStarted || gameOver) return;
-      // Spawn logic
       spawnTimer++; if (spawnTimer > 90) { spawnTimer = 0; spawnObstacle(); }
       quoteTimer++; if (quoteTimer > 300) { quoteTimer = 0; spawnQuote(); }
+
       // Physics
-      player.vy += player.gravity; player.y += player.vy;
+      player.vy += player.gravity;
+      player.y += player.vy;
       if (player.y + player.h > groundY) { player.y = groundY - player.h; player.vy = 0; }
+
       // Clear
       ctx.clearRect(0, 0, W, H);
-      // Draw ground full bottom
-      if (groundImg.complete) {
-        const pat = ctx.createPattern(groundImg, 'repeat-x');
-        ctx.fillStyle = pat;
-        ctx.fillRect(0, groundY, W, H - groundY);
-      }
-      // Clouds smaller
-      clouds.forEach(c => { c.x -= c.speed; if (c.x < -100) c.x = W; ctx.drawImage(cloudImg, c.x, c.y, 100, 50); });
+      // Ground
+      ctx.fillStyle = '#555';
+      ctx.fillRect(0, groundY, W, H - groundY);
+      // Clouds
+      clouds.forEach(c => { c.x -= c.speed; if (c.x < -80) c.x = W; ctx.drawImage(cloudImg, c.x, c.y, 80, 40); });
+
       // Obstacles
       obstacles.forEach((o, i) => {
         o.x -= speed;
-        if (obstacleImg.complete) ctx.drawImage(obstacleImg, o.x, o.y, o.w, o.h);
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(o.x, o.y, o.w, o.h);
         if (!o.passed && o.x + o.w < player.x) {
-          o.passed = true; score++; if (score > best) { best = score; localStorage.setItem('vcBest', best); }
+          o.passed = true;
+          score++;
+          if (score > best) { best = score; localStorage.setItem('vcBest', best); }
           document.getElementById('scoreboard').textContent = `Score: ${score}  Best: ${best}`;
           speed = obstacleSpeedBase + score * 0.02;
         }
@@ -166,35 +164,40 @@
         }
         if (o.x + o.w < 0) obstacles.splice(i, 1);
       });
-      // Quotes below line
+
+      // Quotes
       quotes.forEach((q, i) => {
         q.x -= speed * 0.5;
-        ctx.fillStyle = '#fff'; ctx.font = `${q.size}px monospace`;
+        ctx.fillStyle = '#fff';
+        ctx.font = `${q.size}px monospace`;
         ctx.fillText(q.text, q.x, q.y);
         if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i, 1);
       });
-      // Animate
-      player.frameTimer++; if (player.frameTimer > 5) { player.frame = (player.frame+1)%3; player.frameTimer=0; }
-      // Player draw
+
+      // Animate player
+      player.frameTimer++;
+      if (player.frameTimer > 5) { player.frame = (player.frame + 1) % 3; player.frameTimer = 0; }
+      // Draw player
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(player.x, player.y, player.w, player.h);
       if (spriteImg.complete && spriteImg.naturalWidth) {
         ctx.drawImage(spriteImg, player.frame * player.w, 0, player.w, player.h, player.x, player.y, player.w, player.h);
       }
-      // Request
+
       requestAnimationFrame(update);
     }
 
-    // Jump
-    function jump() { if (gameStarted && !gameOver && player.vy === 0) { player.vy = player.jump; }}
     // Controls
+    function jump() { if (gameStarted && !gameOver && player.vy === 0) { player.vy = player.jump; }}
     window.addEventListener('keydown', e => {
       if (e.code === 'Space') {
-        if (!gameStarted) { gameStarted=true; document.getElementById('message').textContent=''; update(); }
+        if (!gameStarted) { gameStarted = true; document.getElementById('message').textContent = ''; update(); }
         else if (gameOver) reset();
         else jump();
       }
     });
     canvas.addEventListener('touchstart', () => {
-      if (!gameStarted) { gameStarted=true; document.getElementById('message').textContent=''; update(); }
+      if (!gameStarted) { gameStarted = true; document.getElementById('message').textContent = ''; update(); }
       else if (gameOver) reset();
       else jump();
     });
