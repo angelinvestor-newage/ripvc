@@ -3,144 +3,149 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VC Jump Game Parody</title>
+  <title>VC Suitcase Jump Game</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #87CEEB; }
-    canvas { display: block; }
-    #scoreboard {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      color: #000; font: 20px monospace; text-shadow: 1px 1px #fff;
-    }
-    #message {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      color: #000; font: 24px monospace; text-align: center; white-space: pre;
-    }
+    body { margin: 0; padding: 0; background: #0d0d0d; overflow: hidden; font-family: monospace; color: #0f0; }
+    canvas { display: block; background: #222; }
+    #score { position: absolute; top: 10px; left: 10px; font-size: 20px; }
+    #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #f00; font-size: 24px; white-space: pre; text-align: center; }
+    #quotePopup { position: absolute; top: 60%; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); color: #0ff; font-size: 18px;
+      padding: 8px 16px; border: 2px solid #0f0; display: none; }
   </style>
 </head>
 <body>
-  <div id="scoreboard">Score: 0  Best: 0</div>
-  <div id="message">Press Space or Tap to Start</div>
+  <div id="score">Score: 0</div>
+  <div id="message"></div>
+  <div id="quotePopup"></div>
   <canvas id="game"></canvas>
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    let W, H, groundY;
-    function resize() {
-      W = canvas.width = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-      groundY = H / 2;
-      drawInitial();
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    // Assets (single cloud)
-    const spriteImg = new Image(); spriteImg.src = 'vc-run.png';
-    const groundImg = new Image(); groundImg.src = 'ground.png';
-    const obstacleImg = new Image(); obstacleImg.src = 'believe.png';
-    const cloudImg = new Image(); cloudImg.src = 'cloud1.png';
+    // Player
+    const player = { x: 50, y: canvas.height - 70, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
 
-    // Game state
-    const player = { x:0, y:0, w:50, h:75, frame:0, frameTimer:0, vy:0, gravity:0.6, jump:-15 };
-    let gameStarted=false, gameOver=false;
-    let score=0, best=localStorage.getItem('vcBest')||0;
-    const obstacles=[], quotes=[];
-    const obstacleSpeedBase=6; let speed=obstacleSpeedBase;
-    let spawnTimer=0, quoteTimer=0;
-    const vcQuotes=[
-      'Raise fast, fail faster.','Your burn rate is my vibe rate.','Pivot or perish.',
-      'Terms: 0% equity, 200% ghosting.','Disrupt the disruptors.','Build in stealth mode.',
-      'Scale or sail away.','Remember: traction > strategy.'
+    // Obstacles
+    const obstacles = [];
+    let spawnTimer = 0;
+    const obstacleSpeed = 6;
+
+    // Quotes
+    const quotes = [];
+    let quoteTimer = 0;
+    const vcQuotes = [
+      'Raise fast, fail faster.',
+      'Your burn rate is my vibe rate.',
+      'Pivot or perish.',
+      'Terms: 0% equity, 200% ghosting.',
+      'Disrupt the disruptors.',
+      'Build in stealth mode.',
+      'Scale or sail away.',
+      'Remember: traction > strategy.'
     ];
 
-    // Cloud layer (single cloud instances)
-    const clouds=[];
-    function initClouds(){
-      clouds.length=0;
-      for(let i=0;i<5;i++){
-        clouds.push({ x:Math.random()*W, y:Math.random()*groundY/2, speed:1 + Math.random() });
-      }
-    }
-    initClouds();
+    // Game state
+    let score = 0;
+    let gameOver = false;
 
-    // Reset game
-    function reset(){
-      obstacles.length=0; quotes.length=0;
-      player.x = Math.floor(W/2 - player.w/2);
-      player.y = groundY - player.h;
-      player.vy=0; score=0; speed=obstacleSpeedBase;
-      gameStarted=false; gameOver=false;
-      document.getElementById('scoreboard').textContent=`Score: ${score}  Best: ${best}`;
-      document.getElementById('message').textContent='Press Space or Tap to Start';
-      initClouds(); drawInitial();
+    // UI
+    const scoreDiv = document.getElementById('score');
+    const messageDiv = document.getElementById('message');
+    const quotePopup = document.getElementById('quotePopup');
+
+    function spawnObstacle() {
+      const size = 30 + Math.random() * 50;
+      obstacles.push({ x: canvas.width, y: canvas.height - size - 10, size, passed: false });
+    }
+    function spawnQuote() {
+      const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
+      quotes.push({ x: canvas.width, y: canvas.height - player.h - 80, text, size: 18, collected: false });
     }
 
-    // Drawing initial (pre-start)
-    function drawInitial(){
-      ctx.clearRect(0,0,W,H);
-      // Draw clouds
-      clouds.forEach(c=>{ ctx.drawImage(cloudImg,c.x,c.y,200,100); });
-      // Draw ground
-      if(groundImg.complete){
-        const pat=ctx.createPattern(groundImg,'repeat-x');
-        ctx.fillStyle=pat;
-        ctx.fillRect(0,groundY,W,H-groundY);
-      }
-      // Draw player idle
-      player.x = Math.floor(W/2 - player.w/2);
-      if(spriteImg.complete){
-        ctx.drawImage(spriteImg,0,0,player.w,player.h,player.x,player.y,player.w,player.h);
-      } else {
-        ctx.fillStyle='#0f0'; ctx.fillRect(player.x,player.y,player.w,player.h);
-      }
+    function resetGame() {
+      obstacles.length = 0;
+      quotes.length = 0;
+      player.y = canvas.height - player.h - 10;
+      player.vy = 0;
+      score = 0;
+      gameOver = false;
+      messageDiv.textContent = '';
+      scoreDiv.textContent = 'Score: 0';
     }
 
-    // Spawn functions
-    function spawnObstacle(){ const h=30+Math.random()*50; obstacles.push({x:W,y:groundY-h,w:h,h:h,passed:false}); }
-    function spawnQuote(){ if(score%20!==0)return; const t=vcQuotes[Math.floor(Math.random()*vcQuotes.length)]; quotes.push({x:W,y:groundY+20+Math.random()*30,text:t,size:16+Math.random()*8}); }
+    function update() {
+      if (gameOver) return;
+      spawnTimer++;
+      if (spawnTimer > 100) { spawnTimer = 0; spawnObstacle(); }
+      quoteTimer++;
+      if (quoteTimer > 400) { quoteTimer = 0; spawnQuote(); }
 
-    // Draw frame
-    function draw(){
-      ctx.clearRect(0,0,W,H);
-      // Clouds
-      clouds.forEach(c=>{ c.x-=c.speed; if(c.x<-200)c.x=W; ctx.drawImage(cloudImg,c.x,c.y,200,100); });
-      // Ground
-      if(groundImg.complete){ const pat=ctx.createPattern(groundImg,'repeat-x'); ctx.fillStyle=pat; ctx.fillRect(0,groundY,W,H-groundY); }
-      // Obstacles
-      obstacles.forEach(o=>{ o.x-=speed; ctx.drawImage(obstacleImg,o.x,o.y,o.w,o.h); });
-      // Quotes
-      quotes.forEach(q=>{ q.x-=speed*0.5; ctx.fillStyle='#000'; ctx.font=`${q.size}px monospace`; ctx.fillText(q.text,q.x,q.y); });
-      // Player anim
-      player.frameTimer++; if(player.frameTimer>5){ player.frame=(player.frame+1)%3; player.frameTimer=0; }
-      ctx.drawImage(spriteImg, player.frame*player.w,0,player.w,player.h, player.x,player.y,player.w,player.h);
-    }
-
-    // Update loop
-    function update(){
-      if(!gameStarted||gameOver)return;
-      spawnTimer++; if(spawnTimer>90){ spawnTimer=0; spawnObstacle(); }
-      quoteTimer++; if(quoteTimer>300){ quoteTimer=0; spawnQuote(); }
       // Physics
-      player.vy+=player.gravity; player.y+=player.vy;
-      if(player.y+player.h>groundY){ player.y=groundY-player.h; player.vy=0; }
-      // Obstacles logic
-      obstacles.forEach((o,i)=>{
-        if(!o.passed&&o.x+o.w<player.x){ o.passed=true; score++; if(score>best){ best=score; localStorage.setItem('vcBest',best); } document.getElementById('scoreboard').textContent=`Score: ${score}  Best: ${best}`; speed=obstacleSpeedBase+score*0.02; }
-        if(player.x<o.x+o.w&&player.x+player.w>o.x&&player.y<o.y+o.h&&player.y+player.h>o.y){ gameOver=true; document.getElementById('message').textContent=`RIP VC\nScore: ${score}  Best: ${best}\nPress Space or Tap`; }
-        if(o.x+o.w<0) obstacles.splice(i,1);
+      player.vy += player.gravity;
+      player.y += player.vy;
+      if (player.y + player.h > canvas.height - 10) {
+        player.y = canvas.height - player.h - 10;
+        player.vy = 0;
+      }
+
+      // Clear
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Ground
+      ctx.fillStyle = '#555';
+      ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+
+      // Player
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+
+      // Obstacles
+      obstacles.forEach((obs) => {
+        obs.x -= obstacleSpeed;
+        ctx.fillStyle = '#f00';
+        ctx.font = obs.size + 'px monospace';
+        ctx.fillText('B', obs.x, obs.y + obs.size);
+        if (!obs.passed && obs.x + obs.size < player.x) {
+          obs.passed = true;
+          score++;
+          scoreDiv.textContent = 'Score: ' + score;
+        }
+        // Collision
+        if (player.x < obs.x + obs.size && player.x + player.w > obs.x &&
+            player.y < obs.y + obs.size && player.y + player.h > obs.y) {
+          gameOver = true;
+          messageDiv.textContent = 'RIP VC\nFinal Score: ' + score + '\nPress Space to Restart';
+        }
       });
-      // Quotes cleanup
-      quotes.forEach((q,i)=>{ if((q.x-=speed*0.5)+ctx.measureText(q.text).width<0)quotes.splice(i,1); });
-      draw(); requestAnimationFrame(update);
+
+      // Quotes
+      quotes.forEach((q, i) => {
+        q.x -= obstacleSpeed * 0.8;
+        ctx.fillStyle = '#0ff';
+        ctx.font = q.size + 'px monospace';
+        ctx.fillText(q.text, q.x, q.y);
+        if (q.x + ctx.measureText(q.text).width < player.x) {
+          quotePopup.textContent = q.text;
+          quotePopup.style.display = 'block';
+          setTimeout(() => quotePopup.style.display = 'none', 2000);
+        }
+        if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i, 1);
+      });
+
+      requestAnimationFrame(update);
     }
 
-    // Jump
-    function jump(){ if(gameStarted&&!gameOver&&player.vy===0) player.vy=player.jump; }
-    window.addEventListener('keydown',e=>{ if(e.code==='Space'){ if(!gameStarted){ gameStarted=true; document.getElementById('message').textContent=''; update(); } else if(gameOver) reset(); else jump(); }});
-    canvas.addEventListener('touchstart',()=>{ if(!gameStarted){ gameStarted=true; document.getElementById('message').textContent=''; update(); } else if(gameOver) reset(); else jump(); });
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        if (gameOver) resetGame();
+        else if (player.vy === 0) player.vy = player.jumpForce;
+      }
+    });
 
-    // Init
-    reset();
+    resetGame();
+    update();
   </script>
 </body>
 </html>
