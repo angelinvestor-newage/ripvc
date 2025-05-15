@@ -24,12 +24,35 @@
     canvas.height = window.innerHeight;
     const groundY = canvas.height / 2;
 
-    // Load 3-frame VC sprite sheet
-    const spriteImg = new Image();
-    spriteImg.src = 'vc-run.png';
+    // Load 3-frame VC sprite sheet and preprocess transparency
+const spriteImg = new Image();
+spriteImg.src = 'vc-run.png';
+const frames = []; // will hold processed frames with transparency
+spriteImg.onload = () => {
+  const sw = spriteImg.naturalWidth / 3;
+  const sh = spriteImg.naturalHeight;
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = sw;
+  tempCanvas.height = sh;
+  const tempCtx = tempCanvas.getContext('2d');
+  for (let i = 0; i < 3; i++) {
+    tempCtx.clearRect(0, 0, sw, sh);
+    tempCtx.drawImage(spriteImg, i * sw, 0, sw, sh, 0, 0, sw, sh);
+    const imgData = tempCtx.getImageData(0, 0, sw, sh);
+    const data = imgData.data;
+    for (let j = 0; j < data.length; j += 4) {
+      if (data[j] === 255 && data[j+1] === 255 && data[j+2] === 255) {
+        data[j+3] = 0; // make white transparent
+      }
+    }
+    tempCtx.putImageData(imgData, 0, 0);
+    const frameImg = new Image();
+    frameImg.src = tempCanvas.toDataURL();
+    frames.push(frameImg);
+  }
+};
 
-    // Player setup
-    const player = {
+// Player setup
       x: 50,
       y: groundY - 60,
       w: 50,
