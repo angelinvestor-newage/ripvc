@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VC Suitcase Jump Game + Quotes</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #0d0d0d; }
+    canvas { display: block; background: #222; }
+    #score { position: absolute; top: 10px; left: 10px; color: #0f0; font: 20px monospace; }
+    #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+               color: #f00; font: 36px monospace; white-space: pre; text-align: center; }
+    #quotePopup {
+      position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); color: #fff; font: 18px monospace;
+      padding: 10px 20px; border: 2px solid #0f0; border-radius: 4px;
+      display: none; max-width: 80%; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="message"></div>
+  <div id="quotePopup"></div>
+  <canvas id="game"></canvas>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Player setup
+    const player = { x: 50, y: 0, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
+
+    // Obstacles and quotes
+    const obstacles = [];
+    const quotes = [];
+    const obstacleSpeed = 6;
+    let spawnTimer = 0;
+    let quoteTimer = 0;
+
+    let score = 0;
+    let gameOver = false;
+
+    const scoreDiv = document.getElementById('score');
+    const messageDiv = document.getElementById('message');
+    const quotePopup = document.getElementById('quotePopup');
+
+    // Random VC quotes
+    const vcQuotes = [
+      'Raise fast, fail faster.',
+      'Your burn rate is my vibe rate.',
+      'Pivot or perish.',
+      'Terms: 0% equity, 200% ghosting.',
+      'Disrupt the disruptors.',
+      'Build in stealth mode.',
+      'Scale or sail away.',
+      'Remember: traction > strategy.'
+    ];
+
+    function spawnObstacle() {
+      const size = 30 + Math.random() * 50;
+      obstacles.push({ x: canvas.width, y: canvas.height - size - 10, size, passed: false });
+    }
+    function spawnQuote() {
+      const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
+      const x = canvas.width;
+      const size = 20 + Math.random() * 10;
+      quotes.push({ x, y: canvas.height - player.h - 70, text, size, collected: false});
+    }
+
+    function resetGame() {
+      obstacles.length = 0;
+      quotes.length = 0;
+      player.y = canvas.height - player.h - 10;
+      player.vy = 0;
+      score = 0;
+      gameOver = false;
+      messageDiv.textContent = '';
+      scoreDiv.textContent = 'Score: 0';
+    }
+
+    function update() {
+      if (gameOver) return;
+      spawnTimer++;
+      quoteTimer++;
+      if (spawnTimer > 100) { spawnTimer = 0; spawnObstacle(); }
+      if (quoteTimer > 400) { quoteTimer = 0; spawnQuote(); }
+
+      // Physics
+      player.vy += player.gravity;
+      player.y += player.vy;
+      if (player.y + player.h > canvas.height - 10) { player.y = canvas.height - player.h - 10; player.vy = 0; }
+
+      // Draw
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#555'; ctx.fillRect(0, canvas.height-10, canvas.width, 10);
+
+      // Player
+      ctx.fillStyle='#0f0'; ctx.fillRect(player.x, player.y, player.w, player.h);
+      ctx.fillStyle='#000'; ctx.font='20px monospace'; ctx.fillText('VC', player.x+8, player.y+35);
+      ctx.fillText('💼', player.x+8, player.y+55);
+
+      // Obstacles
+      obstacles.forEach(obs => {
+        obs.x -= obstacleSpeed;
+        ctx.fillStyle='#f00'; ctx.font=obs.size+'px monospace'; ctx.fillText('B', obs.x, obs.y+obs.size);
+        if (!obs.passed && obs.x+obs.size < player.x) { obs.passed=true; score++; scoreDiv.textContent='Score:'+score; }
+        if (player.x<obs.x+obs.size && player.x+player.w>obs.x && player.y<obs.y+obs.size && player.y+player.h>obs.y) {
+          gameOver=true; messageDiv.textContent=`RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
+        }
+      });
+      // Quotes
+      quotes.forEach((q, i) => {
+        q.x -= obstacleSpeed*0.8;
+        ctx.fillStyle='#0ff'; ctx.font=q.size+'px monospace'; ctx.fillText(q.text, q.x, q.y);
+        // Collect if hit
+        if (!q.collected && player.x<q.x+ctx.measureText(q.text).width && player.x+player.w>q.x && player.y<q.y && player.y+player.h>q.y- q.size) {
+          q.collected=true;
+          quotePopup.textContent=q.text;
+          quotePopup.style.display='block';
+          setTimeout(()=>quotePopup.style.display='none',2000);
+        }
+        // Remove off-screen or collected
+        if (q.x+ctx.measureText(q.text).width<0 || q.collected) quotes.splice(i,1);
+      });
+
+      requestAnimationFrame(update);
+    }
+
+    // Input
+    window.addEventListener('keydown', e=>{
+      if(e.code==='Space'){
+        if(gameOver){ resetGame(); requestAnimationFrame(update);} else if(player.vy===0){ player.vy=player.jumpForce; }
+      }
+    });
+    // Resize
+    window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight; if(!gameOver) player.y=canvas.height-player.h-10; });
+
+    // Start
+    resetGame(); update();
+  </script>
+</body>
+</html>
