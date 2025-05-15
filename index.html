@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VC Suitcase Jump Game + Quotes</title>
+  <title>VC Suitcase Jump Game</title>
   <style>
     body { margin: 0; overflow: hidden; background: #0d0d0d; }
     canvas { display: block; background: #222; }
@@ -30,9 +30,9 @@
     canvas.height = window.innerHeight;
 
     // Player setup
-    const player = { x: 50, y: 0, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
+    const player = { x: 50, y: canvas.height - 70, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
 
-    // Obstacles (letter B)
+    // Obstacles
     const obstacles = [];
     const obstacleSpeed = 6;
     let spawnTimer = 0;
@@ -107,16 +107,13 @@
       ctx.fillStyle = '#555';
       ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
 
-      // Draw player fallback rectangle
+      // Draw player fallback rectangle and sprite
       ctx.fillStyle = '#0f0';
       ctx.fillRect(player.x, player.y, player.w, player.h);
-      // Overlay sprite if loaded
-      if (playerImg.complete && playerImg.naturalWidth) {
-        ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-      }
+      if (playerImg.complete) ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
 
       // Obstacles
-      obstacles.forEach(obs => {
+      obstacles.forEach((obs, i) => {
         obs.x -= obstacleSpeed;
         if (obstacleImg.complete) {
           ctx.drawImage(obstacleImg, obs.x, obs.y, obs.size, obs.size);
@@ -130,6 +127,7 @@
           gameOver = true;
           messageDiv.textContent = 'RIP VC\nFinal Score: ' + score + '\nPress Space to Restart';
         }
+        if (obs.x + obs.size < 0) obstacles.splice(i, 1);
       });
 
       // Quotes
@@ -152,7 +150,7 @@
 
     window.addEventListener('keydown', e => {
       if (e.code === 'Space') {
-        if (gameOver) { resetGame(); }
+        if (gameOver) { resetGame(); update(); }
         else if (player.vy === 0) { player.vy = player.jumpForce; }
       }
     });
