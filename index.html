@@ -9,9 +9,11 @@
     canvas { display: block; background: #222; }
     #score { position: absolute; top: 10px; left: 10px; font-size: 20px; }
     #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #f00; font-size: 24px; white-space: pre; text-align: center; }
-    #quotePopup { position: absolute; top: 60%; left: 50%; transform: translateX(-50%);
+    #quotePopup {
+      position: absolute; top: 60%; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.8); color: #0ff; font-size: 18px;
-      padding: 8px 16px; border: 2px solid #0f0; display: none; }
+      padding: 8px 16px; border: 2px solid #0f0; display: none;
+    }
   </style>
 </head>
 <body>
@@ -25,8 +27,11 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    // Define groundY at center
+    const groundY = canvas.height / 2;
+
     // Player
-    const player = { x: 50, y: canvas.height - 70, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
+    const player = { x: 50, y: groundY - 60, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
 
     // Obstacles
     const obstacles = [];
@@ -58,17 +63,17 @@
 
     function spawnObstacle() {
       const size = 30 + Math.random() * 50;
-      obstacles.push({ x: canvas.width, y: canvas.height - size - 10, size, passed: false });
+      obstacles.push({ x: canvas.width, y: groundY - size, size, passed: false });
     }
     function spawnQuote() {
       const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
-      quotes.push({ x: canvas.width, y: canvas.height - player.h - 80, text, size: 18, collected: false });
+      quotes.push({ x: canvas.width, y: groundY - player.h - 80, text, size: 18, collected: false });
     }
 
     function resetGame() {
       obstacles.length = 0;
       quotes.length = 0;
-      player.y = canvas.height - player.h - 10;
+      player.y = groundY - player.h;
       player.vy = 0;
       score = 0;
       gameOver = false;
@@ -86,16 +91,16 @@
       // Physics
       player.vy += player.gravity;
       player.y += player.vy;
-      if (player.y + player.h > canvas.height - 10) {
-        player.y = canvas.height - player.h - 10;
+      if (player.y + player.h > groundY) {
+        player.y = groundY - player.h;
         player.vy = 0;
       }
 
       // Clear
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Ground
+      // Draw center ground line
       ctx.fillStyle = '#555';
-      ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+      ctx.fillRect(0, groundY, canvas.width, 5);
 
       // Player
       ctx.fillStyle = '#0f0';
