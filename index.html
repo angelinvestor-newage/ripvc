@@ -115,10 +115,14 @@
       ctx.fillStyle = '#555';
       ctx.fillRect(0, groundY, canvas.width, 4);
 
-      // Draw player
-      if (playerImg.complete) {
+            // Draw player rectangle and overlay sprite
+      ctx.fillStyle = '#0f0';
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+      if (playerImg.complete && playerImg.naturalWidth) {
         ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
       }
+
+      // Draw obstacles
 
       // Obstacles
       obstacles.forEach((obs, i) => {
