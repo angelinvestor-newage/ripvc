@@ -31,22 +31,18 @@
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       groundY = canvas.height / 2;
-      // keep player centered horizontally
       player.x = Math.floor(canvas.width / 2 - player.w / 2);
+      drawInitial();
     }
     window.addEventListener('resize', resize);
-    resize();
 
     // Load assets
-    const playerImg = new Image();
-    playerImg.src = 'vc-sprite.png';
-    const obstacleImg = new Image();
-    obstacleImg.src = 'believe.jpg';
+    const playerImg = new Image(); playerImg.src = 'vc-sprite.png';
+    const obstacleImg = new Image(); obstacleImg.src = 'believe.jpg';
 
     // Player
     const player = { x: 0, y: 0, w: 40, h: 60, vy: 0, gravity: 0.6, jumpForce: -15 };
-    let gameStarted = false;
-    let gameOver = false;
+    let gameStarted = false, gameOver = false;
 
     // State
     const obstacles = [], quotes = [];
@@ -57,93 +53,87 @@
       'Scale or sail away.', 'Remember: traction > strategy.'
     ];
     const obstacleSpeed = 6;
-    let spawnTimer = 0, quoteTimer = 0;
-    let score = 0;
+    let spawnTimer=0, quoteTimer=0, score=0;
 
     // UI
     const scoreDiv = document.getElementById('score');
     const messageDiv = document.getElementById('message');
     const quotePopup = document.getElementById('quotePopup');
 
+    function drawInitial() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#555'; ctx.fillRect(0,groundY,canvas.width,4);
+      if (playerImg.complete && playerImg.naturalWidth) {
+        if (!gameStarted) player.y = groundY - player.h;
+        ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+      }
+    }
+
     function spawnObstacle() {
-      const size = 40 + Math.random() * 60;
-      obstacles.push({ x: canvas.width, y: groundY - size, size, passed: false });
+      const size=40+Math.random()*60;
+      obstacles.push({ x:canvas.width, y:groundY-size, size, passed:false });
     }
     function spawnQuote() {
-      const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
-      const size = 16 + Math.random() * 8;
-      quotes.push({ x: canvas.width, y: groundY + size + 10, text, size, collected: false });
+      const text = vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
+      const size = 16+Math.random()*8;
+      quotes.push({ x:canvas.width, y:groundY+size+10, text, size, collected:false });
     }
 
     function resetGame() {
-      obstacles.length = 0;
-      quotes.length = 0;
-      player.y = groundY - player.h;
-      player.vy = 0;
-      score = 0;
-      gameOver = false;
-      scoreDiv.textContent = 'Score: 0';
-      messageDiv.textContent = 'Press Space to Start';
-      resize();
+      obstacles.length=0; quotes.length=0;
+      player.y = groundY - player.h; player.vy=0;
+      score=0; gameOver=false; gameStarted=false;
+      scoreDiv.textContent='Score: 0';
+      messageDiv.textContent='Press Space to Start';
+      drawInitial();
     }
 
     function getRandomColor() {
-      const colors = ['#00FFFF','#FF00FF','#FFFF00','#00FF00','#FFFFFF','#FFA500','#FF0000','#0000FF','#FF69B4'];
-      return colors[Math.floor(Math.random() * colors.length)];
+      const colors=['#00FFFF','#FF00FF','#FFFF00','#00FF00','#FFFFFF','#FFA500','#FF0000','#0000FF','#FF69B4'];
+      return colors[Math.floor(Math.random()*colors.length)];
     }
 
-    function update() {
+    function gameLoop() {
       if (!gameStarted || gameOver) return;
       spawnTimer++; quoteTimer++;
-      if (spawnTimer > 90) { spawnTimer = 0; spawnObstacle(); }
-      if (quoteTimer > 300) { quoteTimer = 0; spawnQuote(); }
+      if (spawnTimer>90){spawnTimer=0;spawnObstacle();}
+      if (quoteTimer>300){quoteTimer=0;spawnQuote();}
 
-      // Physics
-      player.vy += player.gravity;
-      player.y += player.vy;
-      if (player.y + player.h > groundY) { player.y = groundY - player.h; player.vy = 0; }
+      player.vy+=player.gravity; player.y+=player.vy;
+      if (player.y+player.h>groundY){player.y=groundY-player.h;player.vy=0;}
 
-      // Clear and draw ground
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle = '#555'; ctx.fillRect(0, groundY, canvas.width, 4);
+      ctx.fillStyle='#555'; ctx.fillRect(0,groundY,canvas.width,4);
+      if (playerImg.complete) ctx.drawImage(playerImg,player.x,player.y,player.w,player.h);
 
-      // Draw player sprite
-      if (playerImg.complete) ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-
-      // Obstacles
-      obstacles.forEach((obs,i) => {
-        obs.x -= obstacleSpeed;
-        if (obstacleImg.complete) ctx.drawImage(obstacleImg, obs.x, obs.y, obs.size, obs.size);
-        if (!obs.passed && obs.x + obs.size < player.x) {
-          obs.passed = true; scoreDiv.textContent = 'Score: ' + (++score);
+      obstacles.forEach((obs,i)=>{
+        obs.x-=obstacleSpeed;
+        if (obstacleImg.complete) ctx.drawImage(obstacleImg,obs.x,obs.y,obs.size,obs.size);
+        if (!obs.passed&&obs.x+obs.size<player.x){obs.passed=true;scoreDiv.textContent='Score: '+(++score);}
+        if(player.x<obs.x+obs.size&&player.x+player.w>obs.x&&player.y<obs.y+obs.size&&player.y+player.h>obs.y){
+          gameOver=true;
+          messageDiv.textContent=`RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
         }
-        if (player.x < obs.x+obs.size && player.x+player.w>obs.x && player.y<obs.y+obs.size && player.y+player.h>obs.y) {
-          gameOver = true;
-          messageDiv.textContent = `RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
-        }
-        if (obs.x+obs.size<0) obstacles.splice(i,1);
+        if(obs.x+obs.size<0)obstacles.splice(i,1);
       });
-
-      // Quotes
-      quotes.forEach((q,i) => {
-        q.x -= obstacleSpeed*0.8;
-        ctx.fillStyle='#0ff'; ctx.font=q.size+'px monospace'; ctx.fillText(q.text, q.x, q.y);
+      quotes.forEach((q,i)=>{
+        q.x-=obstacleSpeed*0.8;
+        ctx.fillStyle='#0ff';ctx.font=q.size+'px monospace';ctx.fillText(q.text,q.x,q.y);
         const tw=ctx.measureText(q.text).width;
-        if(!q.collected && player.x<q.x+tw && player.x+player.w>q.x && player.y<q.y && player.y+player.h>q.y-q.size) {
-          q.collected=true; quotePopup.textContent=q.text; quotePopup.style.display='block';
+        if(!q.collected&&player.x<q.x+tw&&player.x+player.w>q.x&&player.y<q.y&&player.y+player.h>q.y-q.size){
+          q.collected=true;quotePopup.textContent=q.text;quotePopup.style.display='block';
           setTimeout(()=>quotePopup.style.display='none',2000);
         }
-        if(q.x+tw<0||q.collected) quotes.splice(i,1);
+        if(q.x+tw<0||q.collected)quotes.splice(i,1);
       });
-
-      requestAnimationFrame(update);
+      requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener('keydown', e => {
-      if (e.code==='Space') {
-        if (!gameStarted) { gameStarted=true; messageDiv.textContent=''; update(); }
-        else if (gameOver) { resetGame(); gameStarted=true; update(); }
-        else if (player.vy===0) { player.vy=player.jumpForce; }
+    window.addEventListener('keydown',e=>{
+      if(e.code==='Space'){
+        if(!gameStarted){gameStarted=true;messageDiv.textContent='';gameLoop();}
+        else if(gameOver){resetGame();}
+        else if(player.vy===0){player.vy=player.jumpForce;}
       }
     });
 
