@@ -25,98 +25,182 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     let W, H;
+    let groundY;
+
+    // Resize
     function resize() {
       W = canvas.width = window.innerWidth;
       H = canvas.height = window.innerHeight;
-      groundY = H/2;
+      groundY = H / 2;
     }
     window.addEventListener('resize', resize);
     resize();
 
-    // assets
-    const spriteImg = new Image(); spriteImg.src = 'vc-run.png'; // 3-frame sprite
-    const groundImg = new Image(); groundImg.src = 'ground.png';
-    const obstacleImg = new Image(); obstacleImg.src = 'believe.png';
-    const cloudImgs = [new Image(), new Image()];
-    cloudImgs[0].src = 'cloud1.png'; cloudImgs[1].src = 'cloud2.png';
+    // Assets
+    const spriteImg = new Image(); spriteImg.src = 'vc-run.png'; // 3-frame running VC sprite sheet
+    const groundImg = new Image(); groundImg.src = 'ground.png'; // pixel-art ground tile
+    const obstacleImg = new Image(); obstacleImg.src = 'believe.png'; // green 'B' logo obstacle
+    const cloudImg = new Image(); cloudImg.src = 'cloud1.png'; // stylized white pixel-art cloud
 
-    const jumpSnd = new Audio('jump.mp3');
-    const landSnd = new Audio('land.mp3');
-    const overSnd = new Audio('gameover.mp3');
+    // Game state
+    const player = { x: 100, y: 0, w: 50, h: 75, frame: 0, frameTimer: 0, vy: 0, gravity: 0.6, jump: -15 };
+    let gameStarted = false, gameOver = false;
+    let score = 0, best = localStorage.getItem('vcBest') || 0;
+    const obstacles = [];
+    const quotes = [];
+    const obstacleSpeedBase = 6;
+    let speed = obstacleSpeedBase, spawnTimer = 0, quoteTimer = 0;
+    const vcQuotes = [
+      'Raise fast, fail faster.',
+      'Your burn rate is my vibe rate.',
+      'Pivot or perish.',
+      'Terms: 0% equity, 200% ghosting.',
+      'Disrupt the disruptors.',
+      'Build in stealth mode.',
+      'Scale or sail away.',
+      'Remember: traction > strategy.'
+    ];
 
-    // game state
-    let groundY;
-    const player = { x: 100, y: 0, w: 50, h: 75, frame:0, frameTimer:0, vy:0, gravity:0.6, jump:-15 };
-    let gameStarted=false, gameOver=false;
-    let score=0, best=localStorage.getItem('vcBest')||0;
-    const obstacles=[], quotes=[];
-    let spawnTimer=0, quoteTimer=0;
-    let speed=6, baseSpeed=6;
-    const vcQuotes=[/* same 8 quotes */];
-
-    // parallax layers
+    // Parallax cloud layer
     const clouds = [];
     function initClouds() {
-      clouds.length=0;
-      for(let i=0;i<5;i++) clouds.push({img:cloudImgs[i%2], x:Math.random()*W, y:Math.random()*groundY/2, speed:1+Math.random()*1});
-    }
-    initClouds();
-
-    function reset() {
-      obstacles.length=0; quotes.length=0;
-      player.y=groundY-player.h; player.vy=0;
-      score=0; speed=baseSpeed; gameOver=false;
-      gameStarted=false;
-      document.getElementById('scoreboard').textContent=`Score:0  Best:${best}`;
-      document.getElementById('message').textContent='Press Space or Tap to Start';
-      initClouds(); draw();
+      clouds.length = 0;
+      for (let i = 0; i < 5; i++) {
+        clouds.push({ x: Math.random() * W, y: Math.random() * groundY / 2, speed: 1 + Math.random() });
+      }
     }
 
-    function spawnObs() {
-      const h=30+Math.random()*50;
-      obstacles.push({x:W,y:groundY-h,w:h,h:h,passed:false});
+    // Spawn functions
+    function spawnObstacle() {
+      const h = 30 + Math.random() * 50;
+      obstacles.push({ x: W, y: groundY - h, w: h, h: h, passed: false });
     }
     function spawnQuote() {
-      if(score%20!==0) return;
-      const t=vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
-      quotes.push({x:W,y:groundY+20+Math.random()*30,text:t});
+      if (score % 20 !== 0) return;
+      const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
+      quotes.push({ x: W, y: groundY + 20 + Math.random() * 30, text: text, size: 16 + Math.random() * 8, collected: false });
     }
 
+    // Reset game
+    function reset() {
+      obstacles.length = 0;
+      quotes.length = 0;
+      player.y = groundY - player.h;
+      player.vy = 0;
+      score = 0;
+      speed = obstacleSpeedBase;
+      gameStarted = false;
+      gameOver = false;
+      document.getElementById('scoreboard').textContent = `Score: ${score}  Best: ${best}`;
+      document.getElementById('message').textContent = 'Press Space or Tap to Start';
+      initClouds();
+      draw();
+    }
+
+    // Draw initial frame
     function draw() {
-      ctx.clearRect(0,0,W,H);
-      // day/night cycle
-      const cycle = Math.floor(score/50)%2;
-      document.body.style.background = cycle? '#1a1a2e':'#87CEEB';
-      // clouds
-      clouds.forEach(c=>{ c.x-=c.speed; if(c.x< -200) c.x=W; ctx.drawImage(c.img,c.x,c.y,200,100); });
-      // ground
-      const pat=ctx.createPattern(groundImg,'repeat-x');
-      ctx.fillStyle=pat; ctx.fillRect(0,groundY,W,40);
-      // obstacles
-      obstacles.forEach((o,i)=>{
-        o.x-=speed;
-        ctx.drawImage(obstacleImg,o.x,o.y,o.w,o.h);
-        if(!o.passed&&o.x+o.w<player.x){ o.passed=true; score++; document.getElementById('scoreboard').textContent=`Score:${score}  Best:${best}`; speed = baseSpeed+score*0.02; }
-        if(collide(player,o)){ gameOver=true; overSnd.play(); document.getElementById('message').textContent=`RIP VC\nScore:${score}  Best:${best}\nPress Space or Tap`; localStorage.best=Math.max(best,score); }
-        if(o.x+o.w<0) obstacles.splice(i,1);
+      ctx.clearRect(0, 0, W, H);
+      // Background cycle
+      const cycle = Math.floor(score / 50) % 2;
+      document.body.style.background = cycle ? '#1a1a2e' : '#87CEEB';
+      // Draw clouds
+      clouds.forEach(c => {
+        c.x -= c.speed;
+        if (c.x < -200) c.x = W;
+        ctx.drawImage(cloudImg, c.x, c.y, 200, 100);
       });
-      // quotes
-      quotes.forEach((q,i)=>{ q.x-=speed*0.5; ctx.fillStyle='#fff'; ctx.font='16px monospace'; ctx.fillText(q.text,q.x,q.y); if(q.x< -ctx.measureText(q.text).width) quotes.splice(i,1); });
-      // player run animation
-      if(gameStarted){ player.frameTimer++; if(player.frameTimer>5){ player.frame=(player.frame+1)%3; player.frameTimer=0; }}
-      // player
-      if(playerImg.complete) ctx.drawImage(playerImg,player.frame*50,0,50,75,player.x,player.y,50,75);
-      if(!gameOver) if(gameStarted) requestAnimationFrame(draw);
+      // Draw ground
+      const pat = ctx.createPattern(groundImg, 'repeat-x');
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, groundY, W, 40);
+      // Draw obstacles
+      obstacles.forEach(o => {
+        ctx.drawImage(obstacleImg, o.x, o.y, o.w, o.h);
+      });
+      // Draw quotes above ground
+      quotes.forEach(q => {
+        ctx.fillStyle = '#fff';
+        ctx.font = `${q.size}px monospace`;
+        ctx.fillText(q.text, q.x, q.y);
+      });
+      // Draw player frame or fallback
+      if (spriteImg.complete && spriteImg.naturalWidth) {
+        ctx.drawImage(spriteImg, player.frame * player.w, 0, player.w, player.h, player.x, player.y, player.w, player.h);
+      } else {
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+      }
     }
 
-    function collide(p,o){ return p.x<p.x+o.w && p.x+ p.w>o.x && p.y<o.y+o.h && p.y+p.h>o.y; }
+    // Game update loop
+    function update() {
+      if (!gameStarted || gameOver) return;
+      // Spawn logic
+      spawnTimer++;
+      if (spawnTimer > 90) { spawnTimer = 0; spawnObstacle(); }
+      quoteTimer++;
+      if (quoteTimer > 300) { quoteTimer = 0; spawnQuote(); }
+      // Apply physics
+      player.vy += player.gravity;
+      player.y += player.vy;
+      if (player.y + player.h > groundY) {
+        player.y = groundY - player.h;
+        player.vy = 0;
+      }
+      // Move obstacles & handle score
+      obstacles.forEach((o, i) => {
+        o.x -= speed;
+        if (!o.passed && o.x + o.w < player.x) {
+          o.passed = true;
+          score++;
+          if (score > best) { best = score; localStorage.setItem('vcBest', best); }
+          document.getElementById('scoreboard').textContent = `Score: ${score}  Best: ${best}`;
+          speed = obstacleSpeedBase + score * 0.02;
+        }
+        // Collision detection
+        if (player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
+          gameOver = true;
+          document.getElementById('message').textContent = `RIP VC\nScore: ${score}  Best: ${best}\nPress Space or Tap`;
+        }
+        if (o.x + o.w < 0) obstacles.splice(i, 1);
+      });
+      // Move quotes
+      quotes.forEach((q, i) => {
+        q.x -= speed * 0.5;
+        if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i, 1);
+      });
+      // Animate player frame
+      player.frameTimer++;
+      if (player.frameTimer > 5) {
+        player.frame = (player.frame + 1) % 3;
+        player.frameTimer = 0;
+      }
+      // Redraw everything
+      draw();
+      requestAnimationFrame(update);
+    }
 
-    function jump(){ if(gameStarted && !gameOver && player.vy===0){ player.vy=player.jump; jumpSnd.play(); } }
+    // Jump handler
+    function jump() {
+      if (gameStarted && !gameOver && player.vy === 0) {
+        player.vy = player.jump;
+      }
+    }
+    // Controls
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space') {
+        if (!gameStarted) { gameStarted = true; document.getElementById('message').textContent = ''; update(); }
+        else if (gameOver) reset();
+        else jump();
+      }
+    });
+    canvas.addEventListener('touchstart', () => {
+      if (!gameStarted) { gameStarted = true; document.getElementById('message').textContent = ''; update(); }
+      else if (gameOver) reset();
+      else jump();
+    });
 
-    window.addEventListener('keydown',e=>{ if(e.code==='Space'){ if(!gameStarted){ gameStarted=true; document.getElementById('message').textContent=''; draw(); } else if(gameOver) reset(); else jump(); }});
-    canvas.addEventListener('touchstart',e=>{ if(!gameStarted){ gameStarted=true; document.getElementById('message').textContent=''; draw(); } else if(gameOver) reset(); else jump(); });
-
-    // init
+    // Initialize
     reset();
   </script>
 </body>
