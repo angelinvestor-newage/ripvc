@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VC Suitcase Jump Game</title>
   <style>
-    body { margin: 0; padding: 0; background: #0d0d0d; overflow: hidden; font-family: monospace; color: #0f0; }
+    body { margin: 0; padding: 0; background: #0d0d0d; overflow: hidden; font-family: monospace; }
     canvas { display: block; background: #222; }
-    #score { position: absolute; top: 10px; left: 10px; font-size: 20px; }
+    #score { position: absolute; top: 10px; left: 10px; color: #0f0; font-size: 20px; }
     #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #f00; font-size: 24px; white-space: pre; text-align: center; }
     #quotePopup { position: absolute; top: 60%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #0ff; font-size: 18px; padding: 8px 16px; border: 2px solid #0f0; display: none; }
   </style>
@@ -22,20 +22,18 @@
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    // Center groundY
     const groundY = canvas.height / 2;
 
-    // Load sprite sheet (3-frame running VC)
+    // Load 3-frame VC sprite sheet
     const spriteImg = new Image();
     spriteImg.src = 'vc-run.png';
 
-    // Player
+    // Player setup
     const player = {
       x: 50,
       y: groundY - 60,
-      w: 40,
-      h: 60,
+      w: 50,
+      h: 75,
       vy: 0,
       gravity: 0.6,
       jumpForce: -15,
@@ -44,12 +42,10 @@
       frameCount: 3
     };
 
-    // Obstacles
+    // Obstacles and quotes
     const obstacles = [];
     let spawnTimer = 0;
     const obstacleSpeed = 6;
-
-    // Quotes
     const quotes = [];
     let quoteTimer = 0;
     const vcQuotes = [
@@ -63,14 +59,13 @@
       'Remember: traction > strategy.'
     ];
 
-    // Game state
-    let score = 0;
-    let gameOver = false;
-
     // UI elements
     const scoreDiv = document.getElementById('score');
     const messageDiv = document.getElementById('message');
     const quotePopup = document.getElementById('quotePopup');
+
+    let score = 0;
+    let gameOver = false;
 
     function spawnObstacle() {
       const size = 30 + Math.random() * 50;
@@ -91,7 +86,6 @@
       gameOver = false;
       messageDiv.textContent = '';
       scoreDiv.textContent = 'Score: 0';
-      // Reset sprite animation
       player.frame = 0;
       player.frameTimer = 0;
     }
@@ -99,7 +93,6 @@
     function update() {
       if (gameOver) return;
 
-      // Spawn logic
       spawnTimer++;
       if (spawnTimer > 100) { spawnTimer = 0; spawnObstacle(); }
       quoteTimer++;
@@ -113,25 +106,29 @@
         player.vy = 0;
       }
 
-      // Advance sprite frame
-      player.frameTimer++;
-      if (player.frameTimer > 6) {
-        player.frame = (player.frame + 1) % player.frameCount;
-        player.frameTimer = 0;
+      // Animate sprite frame
+      if (spriteImg.complete && spriteImg.naturalWidth) {
+        player.frameTimer++;
+        if (player.frameTimer > 6) {
+          player.frame = (player.frame + 1) % player.frameCount;
+          player.frameTimer = 0;
+        }
       }
 
-      // Clear canvas
+      // Clear
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Draw center ground line
+      // Ground line
       ctx.fillStyle = '#555';
       ctx.fillRect(0, groundY, canvas.width, 5);
 
-      // Draw player sprite
-      if (spriteImg.complete) {
+      // Draw player
+      if (spriteImg.complete && spriteImg.naturalWidth) {
+        const sw = spriteImg.naturalWidth / player.frameCount;
+        const sh = spriteImg.naturalHeight;
         ctx.drawImage(
           spriteImg,
-          player.frame * player.w, 0,
-          player.w, player.h,
+          player.frame * sw, 0,
+          sw, sh,
           player.x, player.y,
           player.w, player.h
         );
@@ -140,7 +137,7 @@
         ctx.fillRect(player.x, player.y, player.w, player.h);
       }
 
-      // Draw obstacles
+      // Obstacles
       obstacles.forEach((obs) => {
         obs.x -= obstacleSpeed;
         ctx.fillStyle = '#f00';
@@ -151,7 +148,7 @@
           score++;
           scoreDiv.textContent = 'Score: ' + score;
         }
-        // Check collision
+        // Collision
         if (
           player.x < obs.x + obs.size &&
           player.x + player.w > obs.x &&
@@ -159,18 +156,16 @@
           player.y + player.h > obs.y
         ) {
           gameOver = true;
-          messageDiv.textContent =
-            'RIP VC\nFinal Score: ' + score + '\nPress Space to Restart';
+          messageDiv.textContent = 'RIP VC\nFinal Score: ' + score + '\nPress Space to Restart';
         }
       });
 
-      // Draw quotes
+      // Quotes
       quotes.forEach((q, i) => {
         q.x -= obstacleSpeed * 0.8;
         ctx.fillStyle = '#0ff';
         ctx.font = q.size + 'px monospace';
         ctx.fillText(q.text, q.x, q.y);
-        // Popup on pass
         if (q.x + ctx.measureText(q.text).width < player.x && !q.collected) {
           q.collected = true;
           quotePopup.textContent = q.text;
@@ -185,11 +180,8 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
-        if (gameOver) {
-          resetGame();
-        } else if (player.vy === 0) {
-          player.vy = player.jumpForce;
-        }
+        if (gameOver) resetGame();
+        else if (player.vy === 0) player.vy = player.jumpForce;
       }
     });
 
