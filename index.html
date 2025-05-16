@@ -5,12 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VC Suitcase Jump Game</title>
   <style>
-    body { margin:0; padding:0; background:#0d0d0d; overflow:hidden; font-family:monospace; }
-    canvas { display:block; background:#222; image-rendering:pixelated; }
-    #score { position:absolute; top:10px; left:10px; color:#0f0; font-size:20px; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;           /* pitch black page background */
+      overflow: hidden;
+      font-family: monospace;
+    }
+    canvas {
+      display: block;
+      background: #000;           /* pitch black game canvas */
+      image-rendering: pixelated;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #0f0;
+      font-size: 20px;
+    }
     #message {
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      color:#f00; font-size:24px; white-space:pre; text-align:center;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #f00;
+      font-size: 24px;
+      white-space: pre;
+      text-align: center;
     }
   </style>
 </head>
@@ -19,14 +41,13 @@
   <div id="message">Press Space to Start</div>
   <canvas id="game"></canvas>
   <script>
-    // Canvas setup
+    // --- Setup ---
     const canvas = document.getElementById('game');
     const ctx    = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     const scoreDiv   = document.getElementById('score');
     const messageDiv = document.getElementById('message');
 
-    // Resize and ground line
     let W, H, groundY;
     function resize() {
       W = canvas.width  = window.innerWidth;
@@ -36,19 +57,25 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Assets
+    // --- Assets ---
     const sprite      = new Image(); sprite.src      = 'vc-run.png';
     const obstacleImg = new Image(); obstacleImg.src = 'believe.png';
 
-    // Player state
+    // --- Player ---
     const player = {
-      x: 50, y: groundY - 150,
-      w:100, h:150,
-      vy:0, gravity:0.6, jumpForce:-15,
-      frame:0, frameTimer:0, frameCount:3
+      x: 50, 
+      y: groundY - 150,
+      w: 100, 
+      h: 150,
+      vy: 0, 
+      gravity: 0.6, 
+      jumpForce: -15,
+      frame: 0, 
+      frameTimer: 0, 
+      frameCount: 3
     };
 
-    // Game state
+    // --- Game Objects & State ---
     let obstacles   = [], spawnTimer = 0;
     let quotes      = [], quoteTimer = 0;
     const obstacleSpeed = 6;
@@ -66,18 +93,18 @@
     let score = 0, gameStarted = false, gameOver = false;
     const footOffset = 6;
 
-    // Main update loop
+    // --- Update Loop ---
     function update() {
       if (!gameStarted || gameOver) return;
 
-      // Spawn obstacles
+      // spawn obstacles
       spawnTimer++;
       if (spawnTimer > 90) {
         spawnTimer = 0;
         obstacles.push({ x: W, y: groundY - 60, size: 60, passed: false });
       }
 
-      // Spawn in-canvas quotes below the line
+      // spawn quotes below the line
       quoteTimer++;
       if (quoteTimer > 300) {
         quoteTimer = 0;
@@ -85,7 +112,7 @@
         quotes.push({ x: W, y: groundY + 20, text: txt, size: 18 });
       }
 
-      // Physics
+      // physics
       player.vy += player.gravity;
       player.y  += player.vy;
       if (player.y + player.h > groundY) {
@@ -93,7 +120,7 @@
         player.vy = 0;
       }
 
-      // Animate VC sprite
+      // animate sprite
       if (sprite.complete) {
         player.frameTimer++;
         if (player.frameTimer > 6) {
@@ -102,7 +129,7 @@
         }
       }
 
-      // Move obstacles & handle collisions
+      // move obstacles & collision
       obstacles.forEach((o,i) => {
         o.x -= obstacleSpeed;
         if (!o.passed && o.x + o.size < player.x) {
@@ -122,22 +149,22 @@
         if (o.x + o.size < 0) obstacles.splice(i,1);
       });
 
-      // Move quotes offscreen
+      // move quotes offscreen
       quotes.forEach((q,i) => {
         q.x -= obstacleSpeed * 0.8;
         if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i,1);
       });
     }
 
-    // Main draw loop
+    // --- Draw Loop ---
     function draw() {
       ctx.clearRect(0,0,W,H);
 
-      // Ground line
+      // ground line
       ctx.fillStyle = '#555';
       ctx.fillRect(0, groundY, W, 5);
 
-      // Draw VC (with footOffset)
+      // player
       if (sprite.complete) {
         const sw = sprite.naturalWidth / player.frameCount;
         const sh = sprite.naturalHeight;
@@ -152,12 +179,12 @@
         ctx.fillRect(player.x, player.y + footOffset, player.w, player.h);
       }
 
-      // Draw obstacles
+      // obstacles
       obstacles.forEach(o => {
         ctx.drawImage(obstacleImg, o.x, o.y, o.size, o.size);
       });
 
-      // Draw quotes below the line
+      // quotes below the line
       ctx.fillStyle = '#0ff';
       ctx.textBaseline = 'top';
       quotes.forEach(q => {
@@ -166,37 +193,29 @@
       });
     }
 
-    // RequestAnimationFrame loop
+    // --- Game Loop ---
     (function loop(){
       update();
       draw();
       requestAnimationFrame(loop);
     })();
 
-    // Input handling
+    // --- Input Handler ---
     window.addEventListener('keydown', e => {
       if (e.code === 'Space') {
         if (!gameStarted) {
-          // First ever start
           gameStarted = true;
           messageDiv.style.display = 'none';
         } else if (gameOver) {
-          // Restart on same Space press
-          obstacles.length = 0;
-          quotes.length    = 0;
-          score            = 0;
-          spawnTimer       = 0;
-          quoteTimer       = 0;
-          gameOver         = false;
-          player.y         = groundY - player.h;
-          player.vy        = 0;
-          scoreDiv.textContent   = 'Score: 0';
-
-          // Immediately hide the restart message
-          messageDiv.style.display = 'none';
-          // Keep gameStarted = true so update() runs
+          obstacles.length = quotes.length = 0;
+          score = 0; spawnTimer = quoteTimer = 0;
+          gameOver = false;
+          player.y = groundY - player.h;
+          player.vy = 0;
+          scoreDiv.textContent = 'Score: 0';
+          messageDiv.textContent = 'Press Space to Start';
+          messageDiv.style.display = 'none'; // hide immediately
         } else if (player.vy === 0) {
-          // Regular jump
           player.vy = player.jumpForce;
         }
       }
