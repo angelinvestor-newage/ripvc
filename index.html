@@ -25,13 +25,12 @@
   <div id="quotePopup"></div>
   <canvas id="game"></canvas>
   <script>
-    // ---- Setup ----
     const canvas = document.getElementById('game');
     const ctx    = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
     const scoreDiv   = document.getElementById('score');
     const messageDiv = document.getElementById('message');
     const quotePopup = document.getElementById('quotePopup');
+    ctx.imageSmoothingEnabled = false;
 
     let W, H, groundY;
     function resize() {
@@ -42,25 +41,23 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // ---- Assets ----
+    // Assets
     const sprite      = new Image();
-    sprite.src        = 'vc-run.png';    // your 3-frame sprite sheet
+    sprite.src        = 'vc-run.png';
     const obstacleImg = new Image();
-    obstacleImg.src   = 'believe.png';   // your obstacle image
+    obstacleImg.src   = 'believe.png';
 
-    // ---- Game State ----
+    // Player (2× size)
     const player = {
-      x: 50,
-      y: groundY - 150,
-      w: 100, h: 150,
-      vy: 0, gravity: 0.6, jumpForce: -15,
-      frame: 0, frameTimer: 0, frameCount: 3
+      x: 50, y: groundY - 150,
+      w:100, h:150,
+      vy:0, gravity:0.6, jumpForce:-15,
+      frame:0, frameTimer:0, frameCount:3
     };
 
-    let obstacles   = [];
-    let spawnTimer  = 0;
+    let obstacles   = [], spawnTimer=0;
+    let quotes      = [], quoteTimer=0;
     const obstacleSpeed = 6;
-
     const vcQuotes = [
       'Raise fast, fail faster.',
       'Your burn rate is my vibe rate.',
@@ -71,33 +68,30 @@
       'Scale or sail away.',
       'Remember: traction > strategy.'
     ];
-    let quotes      = [];
-    let quoteTimer  = 0;
 
-    let score       = 0;
-    let gameStarted = false;
-    let gameOver    = false;
+    let score=0, gameStarted=false, gameOver=false;
 
-    // ---- Main Loop ----
+    // How many pixels to drop the sprite so his feet sit exactly on groundY
+    const footOffset = 6;
+
     function update() {
       if (!gameStarted || gameOver) return;
 
       // spawn obstacles
       spawnTimer++;
       if (spawnTimer > 90) {
-        spawnTimer = 0;
-        const size = 60;  // match obstacleImg natural aspect ratio
-        obstacles.push({ x: W, y: groundY - size, size, passed: false });
+        spawnTimer=0;
+        obstacles.push({ x:W, y:groundY-60, size:60, passed:false });
       }
       // spawn quotes
       quoteTimer++;
       if (quoteTimer > 300) {
-        quoteTimer = 0;
-        const text = vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
-        quotes.push({ x: W, y: groundY - player.h - 80, text, size:18, collected:false });
+        quoteTimer=0;
+        const txt = vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
+        quotes.push({ x:W, y:groundY-player.h-80, text:txt, size:18, collected:false });
       }
 
-      // gravity & jump
+      // physics
       player.vy += player.gravity;
       player.y  += player.vy;
       if (player.y + player.h > groundY) {
@@ -105,44 +99,42 @@
         player.vy = 0;
       }
 
-      // animate sprite
+      // animate
       if (sprite.complete) {
         player.frameTimer++;
         if (player.frameTimer > 6) {
-          player.frameTimer = 0;
-          player.frame = (player.frame + 1) % player.frameCount;
+          player.frameTimer=0;
+          player.frame=(player.frame+1)%player.frameCount;
         }
       }
 
-      // move obstacles & collision
+      // move obstacles
       obstacles.forEach((o,i) => {
         o.x -= obstacleSpeed;
-        // scoring
         if (!o.passed && o.x + o.size < player.x) {
           o.passed = true;
           scoreDiv.textContent = 'Score: ' + (++score);
         }
         // collision
         if (
-          player.x < o.x + o.size &&
-          player.x + player.w > o.x &&
-          player.y < o.y + o.size &&
-          player.y + player.h > o.y
+          player.x < o.x+o.size &&
+          player.x+player.w > o.x &&
+          player.y < o.y+o.size &&
+          player.y+player.h > o.y
         ) {
-          gameOver = true;
+          gameOver=true;
           messageDiv.textContent = `RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
         }
-        // cleanup
-        if (o.x + o.size < 0) obstacles.splice(i,1);
+        if (o.x+o.size < 0) obstacles.splice(i,1);
       });
 
       // move quotes
       quotes.forEach((q,i) => {
-        q.x -= obstacleSpeed * 0.8;
+        q.x -= obstacleSpeed*0.8;
         if (!q.collected && q.x + ctx.measureText(q.text).width < player.x) {
-          q.collected = true;
+          q.collected=true;
           quotePopup.textContent = q.text;
-          quotePopup.style.display = 'block';
+          quotePopup.style.display='block';
           setTimeout(()=>quotePopup.style.display='none',2000);
         }
         if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i,1);
@@ -153,38 +145,36 @@
       ctx.clearRect(0,0,W,H);
 
       // ground line
-      ctx.fillStyle = '#555';
-      ctx.fillRect(0, groundY, W, 5);
+      ctx.fillStyle='#555';
+      ctx.fillRect(0,groundY,W,5);
 
-      // player
+      // draw player, dropped by footOffset
       if (sprite.complete) {
-        const sw = sprite.naturalWidth / player.frameCount;
+        const sw = sprite.naturalWidth/player.frameCount;
         const sh = sprite.naturalHeight;
         ctx.drawImage(
           sprite,
-          player.frame * sw, 0, sw, sh,
-          player.x, player.y, player.w, player.h
+          player.frame*sw,0,sw,sh,
+          player.x, player.y+footOffset, player.w, player.h
         );
       } else {
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(player.x, player.y, player.w, player.h);
+        ctx.fillStyle='#0f0';
+        ctx.fillRect(player.x,player.y+footOffset,player.w,player.h);
       }
 
-      // obstacles
+      // draw obstacles
       obstacles.forEach(o => {
         ctx.drawImage(obstacleImg, o.x, o.y, o.size, o.size);
       });
 
       // quotes
-      ctx.fillStyle = '#0ff';
-      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle='#0ff';
       quotes.forEach(q => {
-        ctx.font = `${q.size}px monospace`;
+        ctx.font=`${q.size}px monospace`;
         ctx.fillText(q.text, q.x, q.y);
       });
     }
 
-    // game loop
     function loop() {
       update();
       draw();
@@ -192,24 +182,23 @@
     }
     loop();
 
-    // ---- Input ----
+    // input
     window.addEventListener('keydown', e => {
-      if (e.code === 'Space') {
+      if (e.code==='Space') {
         if (!gameStarted) {
-          gameStarted = true;
-          messageDiv.style.display = 'none';
+          gameStarted=true;
+          messageDiv.style.display='none';
         } else if (gameOver) {
-          // reset state
-          obstacles.length = quotes.length = 0;
-          score = 0; spawnTimer = quoteTimer = 0;
-          gameOver = false;
-          player.y = groundY - player.h;
-          player.vy = 0;
-          scoreDiv.textContent = 'Score: 0';
-          messageDiv.textContent = 'Press Space to Start';
-          messageDiv.style.display = 'block';
-        } else if (player.vy === 0) {
-          player.vy = player.jumpForce;
+          obstacles.length=quotes.length=0;
+          score=0; spawnTimer=quoteTimer=0;
+          gameOver=false;
+          player.y=groundY-player.h;
+          player.vy=0;
+          scoreDiv.textContent='Score: 0';
+          messageDiv.textContent='Press Space to Start';
+          messageDiv.style.display='block';
+        } else if (player.vy===0) {
+          player.vy=player.jumpForce;
         }
       }
     });
