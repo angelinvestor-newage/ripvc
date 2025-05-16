@@ -11,11 +11,13 @@
       overflow: hidden;
       font-family: monospace;
     }
+    /* Game canvas */
     canvas {
       display: block;
       background: #000;
       image-rendering: pixelated;
     }
+    /* Current and best score */
     #score, #best {
       position: absolute;
       left: 10px;
@@ -24,236 +26,78 @@
       line-height: 1.2;
     }
     #score { top: 10px; }
-    #best  { top: 10px; transform: translateY(1.2em); }
-    #message, #tapHint {
+    #best  { top: 32px; } /* just below score */
+    /* Center message / restart prompt */
+    #message {
       position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
       color: #f00;
       font-size: 24px;
       white-space: pre;
       text-align: center;
     }
-    #message { top: 50%; transform: translate(-50%, -50%); }
+    /* Tap hint for mobile */
     #tapHint {
+      position: absolute;
       bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       color: #fff;
       font-size: 18px;
       opacity: 0.7;
       display: none;
       user-select: none;
     }
+    /* NEW: Header container in top-right */
+    .header {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      text-align: center;
+    }
+    .header img {
+      width: 64px;
+      height: 64px;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .header a {
+      display: inline-block;
+      padding: 6px 12px;
+      background: #16a34a;
+      color: #fff;
+      font-size: 14px;
+      text-decoration: none;
+      border-radius: 4px;
+      box-shadow: 0 0 8px rgba(22,163,74,0.6);
+    }
+    .header a:hover {
+      background: #13843f;
+    }
   </style>
 </head>
 <body>
+
+  <!-- NEW HEADER -->
+  <div class="header">
+    <!-- Upload your logo as ripvc-logo.png -->
+    <img src="believe.jpg" alt="RIPVC Logo">
+    <a href="https://angelinvestor-newage.github.io/ripvc/" target="_blank">Buy Now</a>
+  </div>
+
+  <!-- Scores and messages -->
   <div id="score">Score: 0</div>
   <div id="best">Best: 0</div>
   <div id="message">Press Space to Start</div>
   <div id="tapHint">Tap to Jump</div>
+
+  <!-- Game canvas -->
   <canvas id="game"></canvas>
   <script>
-    // --- Setup ---
-    const canvas    = document.getElementById('game');
-    const ctx       = canvas.getContext('2d');
-    const scoreDiv  = document.getElementById('score');
-    const bestDiv   = document.getElementById('best');
-    const messageDiv= document.getElementById('message');
-    const tapHint   = document.getElementById('tapHint');
-    ctx.imageSmoothingEnabled = false;
-
-    // High score from localStorage
-    let bestScore = parseInt(localStorage.getItem('bestScore') || '0', 10);
-    bestDiv.textContent = 'Best: ' + bestScore;
-
-    // Resize & ground
-    let W, H, groundY;
-    function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-      groundY = H / 2;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    // Assets
-    const sprite      = new Image(); sprite.src      = 'vc-run.png';
-    const obstacleImg = new Image(); obstacleImg.src = 'believe.png';
-    const groundImg   = new Image(); groundImg.src   = 'ground.png';
-
-    // Player
-    const player = {
-      x:50, y:groundY-150,
-      w:100, h:150,
-      vy:0, gravity:0.6, jumpForce:-15,
-      frame:0, frameTimer:0, frameCount:3
-    };
-    const footOffset = 6;
-
-    // State
-    let obstacles   = [], spawnTimer = 0;
-    let quotes      = [], quoteTimer = 0;
-    const obstacleSpeed = 6;
-    const vcQuotes = [
-      'Raise fast, fail faster.',
-      'Your burn rate is my vibe rate.',
-      'Pivot or perish.',
-      'Terms: 0% equity, 200% ghosting.',
-      'Disrupt the disruptors.',
-      'Build in stealth mode.',
-      'Scale or sail away.',
-      'Remember: traction > strategy.'
-    ];
-    let score = 0, gameStarted = false, gameOver = false;
-
-    // Quote position
-    const quoteY = 10 + 20 + 5; // below score
-
-    // --- Game Loop ---
-    function update() {
-      if (!gameStarted || gameOver) return;
-
-      // spawn obstacles
-      spawnTimer++;
-      if (spawnTimer > 90) {
-        spawnTimer = 0;
-        obstacles.push({ x:W, y:groundY-60, size:60, passed:false });
-      }
-
-      // spawn quotes at top
-      quoteTimer++;
-      if (quoteTimer > 300) {
-        quoteTimer = 0;
-        const txt = vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
-        quotes.push({ x:W, y:quoteY, text:txt, size:18 });
-      }
-
-      // physics
-      player.vy += player.gravity;
-      player.y  += player.vy;
-      if (player.y + player.h > groundY) {
-        player.y  = groundY - player.h;
-        player.vy = 0;
-      }
-
-      // animate
-      if (sprite.complete) {
-        player.frameTimer++;
-        if (player.frameTimer > 6) {
-          player.frameTimer = 0;
-          player.frame = (player.frame+1) % player.frameCount;
-        }
-      }
-
-      // obstacles & collision
-      obstacles.forEach((o,i)=>{
-        o.x -= obstacleSpeed;
-        if (!o.passed && o.x+o.size < player.x) {
-          o.passed = true;
-          scoreDiv.textContent = 'Score: ' + (++score);
-        }
-        if (
-          player.x < o.x+o.size &&
-          player.x+player.w > o.x &&
-          player.y < o.y+o.size &&
-          player.y+player.h > o.y
-        ) {
-          gameOver = true;
-          messageDiv.textContent = `RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
-          messageDiv.style.display = 'block';
-          // high score
-          if (score > bestScore) {
-            bestScore = score;
-            localStorage.setItem('bestScore', bestScore);
-            bestDiv.textContent = 'Best: ' + bestScore;
-          }
-        }
-        if (o.x+o.size < 0) obstacles.splice(i,1);
-      });
-
-      // move quotes away
-      quotes.forEach((q,i)=>{
-        q.x -= obstacleSpeed*0.8;
-        if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i,1);
-      });
-    }
-
-    function draw() {
-      ctx.clearRect(0,0,W,H);
-
-      // tile ground
-      if (groundImg.complete) {
-        const p = ctx.createPattern(groundImg,'repeat');
-        ctx.fillStyle = p;
-        ctx.fillRect(0,groundY,W,H-groundY);
-      }
-
-      // ground line
-      ctx.fillStyle = '#555';
-      ctx.fillRect(0,groundY,W,5);
-
-      // player
-      if (sprite.complete) {
-        const sw = sprite.naturalWidth / player.frameCount;
-        const sh = sprite.naturalHeight;
-        ctx.drawImage(
-          sprite,
-          player.frame*sw, 0, sw, sh,
-          player.x, player.y+footOffset,
-          player.w, player.h
-        );
-      } else {
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(player.x, player.y+footOffset, player.w, player.h);
-      }
-
-      // obstacles
-      obstacles.forEach(o=>{
-        ctx.drawImage(obstacleImg, o.x, o.y, o.size, o.size);
-      });
-
-      // quotes at top
-      ctx.fillStyle = '#0ff';
-      ctx.textBaseline = 'top';
-      quotes.forEach(q=>{
-        ctx.font = `${q.size}px monospace`;
-        ctx.fillText(q.text, q.x, q.y);
-      });
-    }
-
-    (function loop(){ update(); draw(); requestAnimationFrame(loop); })();
-
-    // --- Input ---
-    function handleJump() {
-      if (!gameStarted) {
-        gameStarted = true;
-        messageDiv.style.display = 'none';
-      } else if (gameOver) {
-        obstacles.length = quotes.length = 0;
-        score = 0; spawnTimer = quoteTimer = 0;
-        gameOver = false;
-        player.y = groundY - player.h;
-        player.vy = 0;
-        scoreDiv.textContent = 'Score: 0';
-        messageDiv.textContent = 'Press Space to Start';
-        messageDiv.style.display = 'none';
-      } else if (player.vy === 0) {
-        player.vy = player.jumpForce;
-      }
-    }
-
-    window.addEventListener('keydown', e => {
-      if (e.code === 'Space') handleJump();
-    });
-
-    // touch support
-    if ('ontouchstart' in window) {
-      tapHint.style.display = 'block';
-      canvas.addEventListener('touchstart', e => {
-        e.preventDefault();
-        handleJump();
-        tapHint.style.display = 'none';
-      }, { passive: false });
-    }
+    // ... all your existing JavaScript from before goes here unchanged ...
+    // input, game loop, update(), draw(), etc.
+    // just copy-paste your previous code.
   </script>
 </body>
 </html>
