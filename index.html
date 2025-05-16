@@ -76,7 +76,7 @@
       // move clouds
       clouds.forEach(c => {
         c.x -= c.speed;
-        if (c.x < -100) c.x = W;
+        if (c.x < -80) c.x = W;  // wrap when fully offscreen (cloud width now 80)
       });
 
       // spawn obstacles
@@ -147,7 +147,7 @@
       ctx.clearRect(0,0,W,H);
 
       // draw clouds
-      clouds.forEach(c => ctx.drawImage(cloudImg, c.x, c.y, 100, 50));
+      clouds.forEach(c => ctx.drawImage(cloudImg, c.x, c.y, 80, 40));
 
       // ground line
       ctx.fillStyle='#555';
