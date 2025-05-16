@@ -5,24 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VC Suitcase Jump Game</title>
   <style>
-    body { margin: 0; padding: 0; background: #0d0d0d; overflow: hidden; font-family: monospace; }
-    canvas { display: block; background: #222; image-rendering: pixelated; }
-    #score {
-      position: absolute; top: 10px; left: 10px;
-      color: #0f0; font-size: 20px;
-    }
+    body { margin:0; padding:0; background:#0d0d0d; overflow:hidden; font-family:monospace; }
+    canvas { display:block; background:#222; image-rendering:pixelated; }
+    #score { position:absolute; top:10px; left:10px; color:#0f0; font-size:20px; }
     #message {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      color: #f00; font-size: 24px;
-      white-space: pre; text-align: center;
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      color:#f00; font-size:24px; white-space:pre; text-align:center;
     }
     #quotePopup {
-      position: absolute; top: 60%; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.8); color: #0ff;
-      font-size: 18px; padding: 8px 16px;
-      border: 2px solid #0f0; display: none;
+      position:absolute; top:60%; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,0.8); color:#0ff; font-size:18px;
+      padding:8px 16px; border:2px solid #0f0; display:none;
     }
   </style>
 </head>
@@ -50,21 +43,18 @@
     resize();
 
     // ---- Assets ----
-    const sprite = new Image();
-    sprite.src = 'vc-run.png'; // transparent PNG, 3 frames horizontally
+    const sprite      = new Image();
+    sprite.src        = 'vc-run.png';    // your 3-frame sprite sheet
+    const obstacleImg = new Image();
+    obstacleImg.src   = 'believe.png';   // your obstacle image
 
     // ---- Game State ----
     const player = {
       x: 50,
-      y: 0,
-      w: 100,      // doubled size
-      h: 150,
-      vy: 0,
-      gravity: 0.6,
-      jumpForce: -15,
-      frame: 0,
-      frameTimer: 0,
-      frameCount: 3
+      y: groundY - 150,
+      w: 100, h: 150,
+      vy: 0, gravity: 0.6, jumpForce: -15,
+      frame: 0, frameTimer: 0, frameCount: 3
     };
 
     let obstacles   = [];
@@ -96,20 +86,20 @@
       spawnTimer++;
       if (spawnTimer > 90) {
         spawnTimer = 0;
-        const size = 60;
+        const size = 60;  // match obstacleImg natural aspect ratio
         obstacles.push({ x: W, y: groundY - size, size, passed: false });
       }
       // spawn quotes
       quoteTimer++;
       if (quoteTimer > 300) {
         quoteTimer = 0;
-        const text = vcQuotes[Math.floor(Math.random() * vcQuotes.length)];
-        quotes.push({ x: W, y: groundY - player.h - 80, text, size: 18, collected: false });
+        const text = vcQuotes[Math.floor(Math.random()*vcQuotes.length)];
+        quotes.push({ x: W, y: groundY - player.h - 80, text, size:18, collected:false });
       }
 
-      // physics
+      // gravity & jump
       player.vy += player.gravity;
-      player.y += player.vy;
+      player.y  += player.vy;
       if (player.y + player.h > groundY) {
         player.y  = groundY - player.h;
         player.vy = 0;
@@ -124,14 +114,15 @@
         }
       }
 
-      // move obstacles & scoring
+      // move obstacles & collision
       obstacles.forEach((o,i) => {
         o.x -= obstacleSpeed;
+        // scoring
         if (!o.passed && o.x + o.size < player.x) {
           o.passed = true;
           scoreDiv.textContent = 'Score: ' + (++score);
         }
-        // collision?
+        // collision
         if (
           player.x < o.x + o.size &&
           player.x + player.w > o.x &&
@@ -141,6 +132,7 @@
           gameOver = true;
           messageDiv.textContent = `RIP VC\nFinal Score: ${score}\nPress Space to Restart`;
         }
+        // cleanup
         if (o.x + o.size < 0) obstacles.splice(i,1);
       });
 
@@ -151,7 +143,7 @@
           q.collected = true;
           quotePopup.textContent = q.text;
           quotePopup.style.display = 'block';
-          setTimeout(() => quotePopup.style.display = 'none', 2000);
+          setTimeout(()=>quotePopup.style.display='none',2000);
         }
         if (q.x + ctx.measureText(q.text).width < 0) quotes.splice(i,1);
       });
@@ -160,7 +152,7 @@
     function draw() {
       ctx.clearRect(0,0,W,H);
 
-      // ground
+      // ground line
       ctx.fillStyle = '#555';
       ctx.fillRect(0, groundY, W, 5);
 
@@ -178,23 +170,21 @@
         ctx.fillRect(player.x, player.y, player.w, player.h);
       }
 
-      // obstacles with bottom-aligned text
-      ctx.textBaseline = 'bottom';
-      ctx.fillStyle = '#f00';
+      // obstacles
       obstacles.forEach(o => {
-        ctx.font = `${o.size}px monospace`;
-        ctx.fillText('B', o.x, groundY);
+        ctx.drawImage(obstacleImg, o.x, o.y, o.size, o.size);
       });
 
       // quotes
-      ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = '#0ff';
+      ctx.textBaseline = 'alphabetic';
       quotes.forEach(q => {
         ctx.font = `${q.size}px monospace`;
         ctx.fillText(q.text, q.x, q.y);
       });
     }
 
+    // game loop
     function loop() {
       update();
       draw();
@@ -209,15 +199,12 @@
           gameStarted = true;
           messageDiv.style.display = 'none';
         } else if (gameOver) {
-          // reset
-          obstacles.length = 0;
-          quotes.length    = 0;
-          score            = 0;
-          spawnTimer       = 0;
-          quoteTimer       = 0;
-          gameOver         = false;
-          player.y         = groundY - player.h;
-          player.vy        = 0;
+          // reset state
+          obstacles.length = quotes.length = 0;
+          score = 0; spawnTimer = quoteTimer = 0;
+          gameOver = false;
+          player.y = groundY - player.h;
+          player.vy = 0;
           scoreDiv.textContent = 'Score: 0';
           messageDiv.textContent = 'Press Space to Start';
           messageDiv.style.display = 'block';
